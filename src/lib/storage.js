@@ -1,4 +1,4 @@
-import { DEFAULT_STARTING_BALANCE } from '../data/stocks'
+import { DEFAULT_STARTING_BALANCE } from '../data/instruments'
 
 const STORAGE_KEY = 'bazaar-sim-portfolio-v1'
 

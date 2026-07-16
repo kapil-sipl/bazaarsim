@@ -1,6 +1,7 @@
 import { formatINR, formatNumber, formatPercent } from '../lib/format'
+import { getInrPrice } from '../lib/markets'
 
-export default function Holdings({ holdings, prices, stockLookup, onTrade }) {
+export default function Holdings({ holdings, prices, instrumentLookup, onTrade }) {
   const entries = Object.entries(holdings)
 
   return (
@@ -18,25 +19,27 @@ export default function Holdings({ holdings, prices, stockLookup, onTrade }) {
           <table className="w-full text-sm">
             <thead className="sticky top-0 bg-ink-800 text-xs uppercase tracking-wide text-ink-400">
               <tr>
-                <th className="px-5 py-2 text-left font-medium">Stock</th>
+                <th className="px-5 py-2 text-left font-medium">Instrument</th>
                 <th className="px-3 py-2 text-right font-medium">Qty</th>
                 <th className="px-3 py-2 text-right font-medium">Avg cost</th>
-                <th className="px-3 py-2 text-right font-medium">LTP</th>
+                <th className="px-3 py-2 text-right font-medium">LTP (₹)</th>
                 <th className="px-3 py-2 text-right font-medium">P&L</th>
                 <th className="px-5 py-2 text-right font-medium"></th>
               </tr>
             </thead>
             <tbody>
               {entries.map(([symbol, holding]) => {
-                const quote = prices[symbol]
-                const ltp = quote?.price ?? holding.avgPrice
+                const instrument = instrumentLookup[symbol]
+                const ltp = getInrPrice(instrument, prices) ?? holding.avgPrice
                 const pnl = (ltp - holding.avgPrice) * holding.qty
                 const pnlPercent = ((ltp - holding.avgPrice) / holding.avgPrice) * 100
-                const stock = stockLookup[symbol]
                 return (
                   <tr key={symbol} className="border-t border-ink-700/60">
                     <td className="px-5 py-2.5">
-                      <div className="font-medium text-ink-100">{symbol.replace('.NS', '')}</div>
+                      <div className="font-medium text-ink-100">{displaySymbol(instrument)}</div>
+                      <div className="text-[10px] uppercase tracking-wide text-ink-500">
+                        {instrument.assetClass}
+                      </div>
                     </td>
                     <td className="px-3 py-2.5 text-right font-mono tabular">{holding.qty}</td>
                     <td className="px-3 py-2.5 text-right font-mono tabular">
@@ -53,7 +56,7 @@ export default function Holdings({ holdings, prices, stockLookup, onTrade }) {
                     </td>
                     <td className="px-5 py-2.5 text-right">
                       <button
-                        onClick={() => onTrade(stock, 'SELL')}
+                        onClick={() => onTrade(instrument, 'SELL')}
                         className="rounded-md bg-loss-600/20 px-2.5 py-1 text-xs font-medium text-loss-400 transition hover:bg-loss-600/30"
                       >
                         Sell
@@ -68,4 +71,10 @@ export default function Holdings({ holdings, prices, stockLookup, onTrade }) {
       )}
     </div>
   )
+}
+
+function displaySymbol(instrument) {
+  if (instrument.assetClass === 'STOCK') return instrument.symbol.replace('.NS', '')
+  if (instrument.assetClass === 'CRYPTO') return instrument.symbol.replace('-USD', '')
+  return instrument.symbol.replace('=X', '')
 }

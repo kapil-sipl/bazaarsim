@@ -6,22 +6,34 @@ import Holdings from './components/Holdings'
 import TradeHistory from './components/TradeHistory'
 import TradeModal from './components/TradeModal'
 import OnboardingModal from './components/OnboardingModal'
-import { STOCK_UNIVERSE, DEFAULT_STARTING_BALANCE } from './data/stocks'
+import { ALL_INSTRUMENTS, INSTRUMENT_LOOKUP, DEFAULT_STARTING_BALANCE } from './data/instruments'
 import { usePrices } from './lib/usePrices'
+import { getInrPrice, getNativePrice } from './lib/markets'
 import { loadPortfolio, savePortfolio, createFreshPortfolio, hasVisitedBefore, markVisited } from './lib/storage'
 import { canBuy, canSell, executeBuy, executeSell, portfolioStats } from './lib/trading'
 
-const SYMBOLS = STOCK_UNIVERSE.map((s) => s.symbol)
-const STOCK_LOOKUP = Object.fromEntries(STOCK_UNIVERSE.map((s) => [s.symbol, s]))
+const SYMBOLS = ALL_INSTRUMENTS.map((s) => s.symbol)
 
 export default function App() {
   const [portfolio, setPortfolio] = useState(loadPortfolio)
-  const [activeTrade, setActiveTrade] = useState(null) // { stock, side }
+  const [activeTrade, setActiveTrade] = useState(null) // { instrument, side }
   const [showOnboarding, setShowOnboarding] = useState(!hasVisitedBefore())
   const [showResetConfirm, setShowResetConfirm] = useState(false)
   const [toast, setToast] = useState(null)
 
   const { prices, status: priceStatus } = usePrices(SYMBOLS)
+
+  // A single INR price per symbol — this is what the portfolio, holdings,
+  // and P&L math use regardless of whether the instrument is a stock,
+  // a USD-priced crypto asset, or a currency pair quoted vs INR.
+  const inrPrices = useMemo(() => {
+    const map = {}
+    for (const instrument of ALL_INSTRUMENTS) {
+      const price = getInrPrice(instrument, prices)
+      if (price) map[instrument.symbol] = { price }
+    }
+    return map
+  }, [prices])
 
   useEffect(() => {
     savePortfolio(portfolio)
@@ -33,31 +45,31 @@ export default function App() {
     return () => clearTimeout(t)
   }, [toast])
 
-  const stats = useMemo(() => portfolioStats(portfolio, prices), [portfolio, prices])
+  const stats = useMemo(() => portfolioStats(portfolio, inrPrices), [portfolio, inrPrices])
 
   function handleDismissOnboarding() {
     markVisited()
     setShowOnboarding(false)
   }
 
-  function openTrade(stock, side) {
-    if (side === 'SELL' && !portfolio.holdings[stock.symbol]) return
-    setActiveTrade({ stock, side })
+  function openTrade(instrument, side) {
+    if (side === 'SELL' && !portfolio.holdings[instrument.symbol]) return
+    setActiveTrade({ instrument, side })
   }
 
   function confirmTrade(qty) {
-    const { stock, side } = activeTrade
-    const price = prices[stock.symbol]?.price
+    const { instrument, side } = activeTrade
+    const price = inrPrices[instrument.symbol]?.price
     if (!price) return
 
     if (side === 'BUY') {
       if (!canBuy(portfolio, price, qty)) return
-      setPortfolio((p) => executeBuy(p, stock.symbol, price, qty))
-      setToast(`Bought ${qty} ${stock.symbol.replace('.NS', '')} @ ${price.toFixed(2)}`)
+      setPortfolio((p) => executeBuy(p, instrument.symbol, price, qty))
+      setToast(`Bought ${qty} ${displaySymbol(instrument)} @ ₹${price.toFixed(2)}`)
     } else {
-      if (!canSell(portfolio, stock.symbol, qty)) return
-      setPortfolio((p) => executeSell(p, stock.symbol, price, qty))
-      setToast(`Sold ${qty} ${stock.symbol.replace('.NS', '')} @ ${price.toFixed(2)}`)
+      if (!canSell(portfolio, instrument.symbol, qty)) return
+      setPortfolio((p) => executeSell(p, instrument.symbol, price, qty))
+      setToast(`Sold ${qty} ${displaySymbol(instrument)} @ ₹${price.toFixed(2)}`)
     }
     setActiveTrade(null)
   }
@@ -70,7 +82,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen">
-      <TickerTape stocks={STOCK_UNIVERSE} prices={prices} />
+      <TickerTape instruments={ALL_INSTRUMENTS} prices={prices} />
 
       <header className="border-b border-ink-700 px-5 py-4 sm:px-8">
         <div className="mx-auto flex max-w-6xl items-center justify-between">
@@ -78,7 +90,9 @@ export default function App() {
             <h1 className="font-display text-xl font-semibold tracking-tight text-ink-100">
               Bazaar Sim
             </h1>
-            <p className="text-xs text-ink-400">Paper trading for Indian equities · not real money</p>
+            <p className="text-xs text-ink-400">
+              Paper trading · stocks, crypto & forex · not real money
+            </p>
           </div>
           <button
             onClick={() => setShowResetConfirm(true)}
@@ -94,18 +108,13 @@ export default function App() {
 
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-5">
           <div className="lg:col-span-3">
-            <Watchlist
-              stocks={STOCK_UNIVERSE}
-              prices={prices}
-              priceStatus={priceStatus}
-              onTrade={openTrade}
-            />
+            <Watchlist prices={prices} priceStatus={priceStatus} onTrade={openTrade} />
           </div>
           <div className="space-y-5 lg:col-span-2">
             <Holdings
               holdings={portfolio.holdings}
               prices={prices}
-              stockLookup={STOCK_LOOKUP}
+              instrumentLookup={INSTRUMENT_LOOKUP}
               onTrade={openTrade}
             />
           </div>
@@ -115,7 +124,8 @@ export default function App() {
       </main>
 
       <footer className="px-5 py-6 text-center text-xs text-ink-500 sm:px-8">
-        Simulated prices sourced with a short delay. No brokerage, demat, or real funds are involved.
+        Simulated prices sourced with a short delay. Crypto is converted to INR at the live
+        USD/INR rate. No brokerage, demat, wallet, or real funds are involved.
       </footer>
 
       {showOnboarding && (
@@ -125,7 +135,8 @@ export default function App() {
       {activeTrade && (
         <TradeModal
           trade={activeTrade}
-          price={prices[activeTrade.stock.symbol]?.price}
+          inrPrice={inrPrices[activeTrade.instrument.symbol]?.price}
+          nativePrice={getNativePrice(activeTrade.instrument, prices)}
           portfolio={portfolio}
           onConfirm={confirmTrade}
           onClose={() => setActiveTrade(null)}
@@ -165,4 +176,10 @@ export default function App() {
       )}
     </div>
   )
+}
+
+function displaySymbol(instrument) {
+  if (instrument.assetClass === 'STOCK') return instrument.symbol.replace('.NS', '')
+  if (instrument.assetClass === 'CRYPTO') return instrument.symbol.replace('-USD', '')
+  return instrument.symbol.replace('=X', '')
 }

@@ -1,16 +1,16 @@
 import { useMemo, useState } from 'react'
-import { formatINR, formatNumber } from '../lib/format'
+import { formatINR, formatNative, formatNumber } from '../lib/format'
 
-export default function TradeModal({ trade, price, portfolio, onConfirm, onClose }) {
+export default function TradeModal({ trade, inrPrice, nativePrice, portfolio, onConfirm, onClose }) {
   const [qty, setQty] = useState(1)
-  const { stock, side } = trade
+  const { instrument, side } = trade
 
   const maxQty = useMemo(() => {
-    if (side === 'BUY') return Math.max(1, Math.floor(portfolio.cash / price))
-    return portfolio.holdings[stock.symbol]?.qty || 0
-  }, [side, price, portfolio, stock.symbol])
+    if (side === 'BUY') return Math.max(1, Math.floor(portfolio.cash / inrPrice))
+    return portfolio.holdings[instrument.symbol]?.qty || 0
+  }, [side, inrPrice, portfolio, instrument.symbol])
 
-  const total = price * qty
+  const total = inrPrice * qty
   const isValid = qty > 0 && (side === 'BUY' ? total <= portfolio.cash : qty <= maxQty)
 
   return (
@@ -19,21 +19,33 @@ export default function TradeModal({ trade, price, portfolio, onConfirm, onClose
         <div className="mb-4 flex items-start justify-between">
           <div>
             <h3 className="font-display text-lg font-semibold text-ink-100">
-              {side === 'BUY' ? 'Buy' : 'Sell'} {stock.symbol.replace('.NS', '')}
+              {side === 'BUY' ? 'Buy' : 'Sell'} {displaySymbol(instrument)}
             </h3>
-            <p className="text-xs text-ink-400">{stock.name}</p>
+            <p className="text-xs text-ink-400">{instrument.name}</p>
           </div>
           <button onClick={onClose} className="text-ink-400 hover:text-ink-100" aria-label="Close">
             ✕
           </button>
         </div>
 
-        <div className="mb-4 flex items-center justify-between rounded-lg bg-ink-700/50 px-4 py-3">
-          <span className="text-xs text-ink-400">Market price</span>
-          <span className="font-mono tabular text-ink-100">{formatNumber(price)}</span>
+        <div className="mb-4 space-y-1.5 rounded-lg bg-ink-700/50 px-4 py-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-ink-400">Market price</span>
+            <span className="font-mono tabular text-ink-100">
+              {formatNative(nativePrice, instrument.currency)}
+            </span>
+          </div>
+          {instrument.assetClass === 'CRYPTO' && (
+            <div className="flex items-center justify-between text-xs text-ink-400">
+              <span>≈ INR equivalent</span>
+              <span className="font-mono tabular">₹{formatNumber(inrPrice)}</span>
+            </div>
+          )}
         </div>
 
-        <label className="mb-1 block text-xs uppercase tracking-wide text-ink-400">Quantity</label>
+        <label className="mb-1 block text-xs uppercase tracking-wide text-ink-400">
+          {instrument.assetClass === 'FOREX' ? 'Units' : 'Quantity'}
+        </label>
         <div className="mb-1 flex items-center gap-2">
           <button
             onClick={() => setQty((q) => Math.max(1, q - 1))}
@@ -58,8 +70,8 @@ export default function TradeModal({ trade, price, portfolio, onConfirm, onClose
         </div>
         <p className="mb-4 text-xs text-ink-400">
           {side === 'BUY'
-            ? `Max ${maxQty} share${maxQty === 1 ? '' : 's'} with available cash`
-            : `You hold ${maxQty} share${maxQty === 1 ? '' : 's'}`}
+            ? `Max ${maxQty} with available cash`
+            : `You hold ${maxQty} unit${maxQty === 1 ? '' : 's'}`}
         </p>
 
         <div className="mb-5 flex items-center justify-between border-t border-ink-700 pt-3">
@@ -71,7 +83,7 @@ export default function TradeModal({ trade, price, portfolio, onConfirm, onClose
 
         {!isValid && (
           <p className="mb-3 text-xs text-loss-400">
-            {side === 'BUY' ? "That's more than your available cash." : "You don't hold that many shares."}
+            {side === 'BUY' ? "That's more than your available cash." : "You don't hold that many units."}
           </p>
         )}
 
@@ -89,4 +101,10 @@ export default function TradeModal({ trade, price, portfolio, onConfirm, onClose
       </div>
     </div>
   )
+}
+
+function displaySymbol(instrument) {
+  if (instrument.assetClass === 'STOCK') return instrument.symbol.replace('.NS', '')
+  if (instrument.assetClass === 'CRYPTO') return instrument.symbol.replace('-USD', '')
+  return instrument.symbol.replace('=X', '')
 }

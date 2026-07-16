@@ -1,5 +1,9 @@
 import { formatDateTime, formatINR, formatNumber } from '../lib/format'
 
+function displaySymbol(symbol) {
+  return symbol.replace('.NS', '').replace('-USD', '').replace('=X', '')
+}
+
 export default function TradeHistory({ trades }) {
   return (
     <div className="rounded-xl border border-ink-700 bg-ink-800 shadow-panel">
@@ -30,7 +34,7 @@ export default function TradeHistory({ trades }) {
               {trades.map((trade) => (
                 <tr key={trade.id} className="border-t border-ink-700/60">
                   <td className="px-5 py-2.5 font-medium text-ink-100">
-                    {trade.symbol.replace('.NS', '')}
+                    {displaySymbol(trade.symbol)}
                   </td>
                   <td className="px-3 py-2.5">
                     <span
