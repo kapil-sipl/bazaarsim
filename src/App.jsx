@@ -5,7 +5,7 @@ import Watchlist from './components/Watchlist'
 import Holdings from './components/Holdings'
 import TradeHistory from './components/TradeHistory'
 import MarketStructure from './components/MarketStructure'
-import BuySellCalculator from './components/BuySellCalculator'
+import TPSLCalculator from './components/TPSLCalculator'
 import TradeModal from './components/TradeModal'
 import OnboardingModal from './components/OnboardingModal'
 import { ALL_INSTRUMENTS, INSTRUMENT_LOOKUP, DEFAULT_STARTING_BALANCE } from './data/instruments'
@@ -120,7 +120,8 @@ export default function App() {
               onTrade={openTrade}
             />
             <MarketStructure />
-            <BuySellCalculator />
+            <TPSLCalculator side="BUY" />
+            <TPSLCalculator side="SELL" />
           </div>
         </div>
 
