@@ -4,6 +4,7 @@ import SummaryBar from './components/SummaryBar'
 import Watchlist from './components/Watchlist'
 import Holdings from './components/Holdings'
 import TradeHistory from './components/TradeHistory'
+import MarketStructure from './components/MarketStructure'
 import TradeModal from './components/TradeModal'
 import OnboardingModal from './components/OnboardingModal'
 import { ALL_INSTRUMENTS, INSTRUMENT_LOOKUP, DEFAULT_STARTING_BALANCE } from './data/instruments'
@@ -117,6 +118,7 @@ export default function App() {
               instrumentLookup={INSTRUMENT_LOOKUP}
               onTrade={openTrade}
             />
+            <MarketStructure />
           </div>
         </div>
 
